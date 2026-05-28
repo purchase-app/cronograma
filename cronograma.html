@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Cronograma">
+  <meta name="theme-color" content="#0b0e15">
+  <title>Mi Cronograma</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0b0e15;
+      --surf:     #131720;
+      --surf2:    #1a2030;
+      --surf3:    #202840;
+      --border:   rgba(255,255,255,0.06);
+      --accent:   #00e5b0;
+      --accent2:  #0099ff;
+      --accentDim:rgba(0,229,176,0.12);
+      --text:     #dde4f0;
+      --text2:    #7a8499;
+      --text3:    #4a5468;
+      --warn:     #f5c842;
+      --danger:   #ff4d6d;
+      --success:  #00e5b0;
+      --r:        16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html { height: 100%; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -120px; left: -80px;
+      width: 420px; height: 420px;
+      background: radial-gradient(circle, rgba(0,229,176,0.07) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -80px; right: -80px;
+      width: 360px; height: 360px;
+      background: radial-gradient(circle, rgba(0,153,255,0.06) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    #app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ══ HEADER ══════════════════════════════════════════════════════ */
+    .header {
+      padding: 52px 22px 22px;
+      background: linear-gradient(180deg, rgba(0,229,176,0.07) 0%, transparent 100%);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+
+    .greeting {
+      font-family: 'Sora', sans-serif;
+      font-size: 11px; font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase; letter-spacing: 2.5px;
+      margin-bottom: 6px;
+    }
+
+    .date-text {
+      font-family: 'Sora', sans-serif;
+      font-size: 21px; font-weight: 700;
+      color: var(--text); line-height: 1.15;
+    }
+
+    /* Ring */
+    .ring-wrap { position: relative; width: 68px; height: 68px; flex-shrink: 0; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-bg  { fill: none; stroke: var(--surf3); stroke-width: 5; }
+    .ring-fg  { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1); }
+    .ring-label {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .ring-pct  { font-family:'Sora',sans-serif; font-size:13px; font-weight:700; color:var(--text); line-height:1; }
+    .ring-sub  { font-size:9px; color:var(--text2); margin-top:2px; }
+
+    /* Progress bar */
+    .prog-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .prog-label { font-size: 12px; color: var(--text2); }
+    .streak-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.2);
+      border-radius: 20px; padding: 3px 10px;
+      font-size: 12px; color: var(--warn); font-weight: 600;
+    }
+    .prog-bar  { height: 5px; background: var(--surf3); border-radius: 3px; overflow: hidden; }
+    .prog-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ══ TABS ════════════════════════════════════════════════════════ */
+    .tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+      background: var(--bg); position: sticky; top: 0; z-index: 50;
+    }
+    .tab-btn {
+      flex: 1; padding: 14px 6px;
+      background: none; border: none;
+      color: var(--text2);
+      font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600;
+      cursor: pointer; position: relative; transition: color 0.2s;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn.active::after {
+      content: ''; position: absolute; bottom: -1px; left: 16px; right: 16px;
+      height: 2px; background: var(--accent); border-radius: 2px 2px 0 0;
+    }
+
+    /* ══ CONTENT ═════════════════════════════════════════════════════ */
+    .content { flex: 1; padding: 20px 20px 110px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+    /* Section header */
+    .sec-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .sec-title {
+      font-family: 'Sora', sans-serif; font-size: 10px; font-weight: 700;
+      color: var(--text3); text-transform: uppercase; letter-spacing: 2px;
+    }
+    .edit-toggle {
+      font-size: 12px; font-weight: 500; color: var(--accent2);
+      background: rgba(0,153,255,0.1); border: 1px solid rgba(0,153,255,0.15);
+      border-radius: 8px; padding: 5px 12px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+      transition: all 0.2s;
+    }
+    .edit-toggle:active { transform: scale(0.96); }
+
+    /* Reset banner */
+    .reset-banner {
+      background: rgba(0,229,176,0.08); border: 1px solid rgba(0,229,176,0.2);
+      border-radius: 12px; padding: 11px 16px; margin-bottom: 16px;
+      font-size: 13px; color: var(--accent); text-align: center;
+      display: none; animation: fadeIn 0.3s ease;
+    }
+
+    /* Task card */
+    .task-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 15px 16px;
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: var(--r); margin-bottom: 10px;
+      cursor: pointer; transition: all 0.18s; user-select: none;
+      position: relative; overflow: hidden;
+    }
+    .task-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: transparent; border-radius: 3px 0 0 3px; transition: background 0.2s;
+    }
+    .task-card.done::before { background: var(--accent); }
+    .task-card.done { background: rgba(0,229,176,0.05); border-color: rgba(0,229,176,0.15); }
+    .task-card:active:not(.edit-mode) { transform: scale(0.98); }
+
+    .check {
+      width: 26px; height: 26px; border-radius: 9px;
+      border: 2px solid var(--text3); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .task-card.done .check { background: var(--accent); border-color: var(--accent); }
+    .check-icon { display: none; }
+    .task-card.done .check-icon { display: block; }
+
+    .task-name {
+      flex: 1; font-size: 15px; font-weight: 400; color: var(--text);
+      transition: all 0.2s; line-height: 1.3;
+    }
+    .task-card.done .task-name { color: var(--text3); text-decoration: line-through; }
+
+    /* Edit mode */
+    .task-actions { display: none; gap: 8px; }
+    .task-card.edit-mode { cursor: default; }
+    .task-card.edit-mode .check { display: none; }
+    .task-card.edit-mode .task-actions { display: flex; }
+
+    .act-btn {
+      width: 34px; height: 34px; border-radius: 9px; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; transition: transform 0.15s;
+    }
+    .act-btn:active { transform: scale(0.9); }
+    .act-edit   { background: rgba(245,200,66,0.12); }
+    .act-delete { background: rgba(255,77,109,0.12); }
+
+    /* Add form (inline) */
+    .add-row {
+      display: none; gap: 10px; margin-top: 4px;
+    }
+    .add-row.show { display: flex; }
+    .add-inp {
+      flex: 1; padding: 13px 15px;
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .add-inp:focus { border-color: var(--accent); }
+    .add-inp::placeholder { color: var(--text3); }
+    .add-sub {
+      padding: 0 18px; background: var(--accent); border: none;
+      border-radius: 12px; color: #000; font-weight: 700;
+      font-size: 22px; cursor: pointer; line-height: 1;
+    }
+
+    /* Empty */
+    .empty { text-align: center; padding: 48px 20px; color: var(--text3); font-size: 14px; }
+    .empty span { display: block; font-size: 32px; margin-bottom: 10px; }
+
+    /* ══ STATS ═══════════════════════════════════════════════════════ */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+    .stat-card {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 18px 16px;
+    }
+    .stat-card.full { grid-column: 1 / -1; }
+    .stat-lbl {
+      font-size: 10px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;
+    }
+    .stat-val {
+      font-family: 'Sora', sans-serif; font-size: 36px; font-weight: 800;
+      color: var(--text); line-height: 1;
+    }
+    .stat-val.accent { color: var(--accent); }
+    .stat-val.warn { color: var(--warn); }
+    .stat-sub { font-size: 12px; color: var(--text2); margin-top: 5px; }
+
+    /* Monthly progress bar in stats */
+    .bar-wrap { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+    .bar-track { flex: 1; height: 8px; background: var(--surf2); border-radius: 4px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.6s ease; }
+
+    /* Calendar */
+    .cal-section { margin-top: 8px; }
+    .cal-hd { font-family:'Sora',sans-serif; font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:12px; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .cal-label { font-size:10px; color:var(--text3); text-align:center; font-weight:600; padding:3px 0; }
+    .cal-cell {
+      aspect-ratio: 1; border-radius: 7px;
+      background: var(--surf2); font-size: 10px; font-weight: 500;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text3);
+    }
+    .cal-cell.done   { background: rgba(0,229,176,0.25); color: var(--accent); }
+    .cal-cell.part   { background: rgba(0,229,176,0.08); color: var(--text2); }
+    .cal-cell.today  { outline: 2px solid var(--accent); color: var(--text); }
+    .cal-cell.future { opacity: 0.25; }
+    .cal-cell.empty  { background: transparent; }
+
+    /* ══ FAB ═════════════════════════════════════════════════════════ */
+    .fab {
+      position: fixed; bottom: 30px; right: 22px;
+      width: 58px; height: 58px; border-radius: 18px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      border: none; color: #05101e; font-size: 26px; font-weight: 300;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 28px rgba(0,229,176,0.28);
+      transition: all 0.2s; z-index: 90;
+    }
+    .fab:active { transform: scale(0.93); }
+
+    /* ══ MODALS ══════════════════════════════════════════════════════ */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: none; align-items: flex-end; justify-content: center;
+      z-index: 200; backdrop-filter: blur(6px);
+    }
+    .overlay.show { display: flex; }
+
+    .modal {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 26px 26px 0 0; padding: 28px 22px 36px;
+      width: 100%; max-width: 480px;
+      animation: slideUp 0.3s cubic-bezier(.32,0,.15,1);
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+    .modal-title {
+      font-family: 'Sora', sans-serif; font-size: 19px; font-weight: 700;
+      margin-bottom: 20px; color: var(--text);
+    }
+
+    .modal-inp {
+      width: 100%; padding: 14px 16px;
+      background: var(--surf2); border: 1px solid var(--border);
+      border-radius: 13px; color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none;
+      margin-bottom: 14px; transition: border-color 0.2s;
+    }
+    .modal-inp:focus { border-color: var(--accent); }
+
+    .cat-row { display: flex; gap: 10px; margin-bottom: 18px; }
+    .cat-btn {
+      flex: 1; padding: 11px; border-radius: 12px; border: 1px solid var(--border);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .cat-btn.sel { background: var(--accent); color: #000; border-color: var(--accent); }
+    .cat-btn:not(.sel) { background: var(--surf2); color: var(--text2); }
+
+    .btn-row { display: flex; gap: 10px; }
+    .btn {
+      flex: 1; padding: 15px; border-radius: 13px; border: none;
+      font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-ghost   { background: var(--surf2); color: var(--text2); }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── HEADER ─────────────────────────────── -->
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="greeting" id="greeting">Buenos días, Nico</div>
+        <div class="date-text" id="dateText">…</div>
+      </div>
+      <div class="ring-wrap">
+        <svg width="68" height="68" viewBox="0 0 68 68">
+          <circle class="ring-bg" cx="34" cy="34" r="28"/>
+          <circle class="ring-fg" id="ringFg" cx="34" cy="34" r="28"
+            stroke-dasharray="175.9" stroke-dashoffset="175.9"/>
+        </svg>
+        <div class="ring-label">
+          <span class="ring-pct" id="ringPct">0%</span>
+          <span class="ring-sub">hoy</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="prog-row">
+        <span class="prog-label" id="progLabel">0 de 0 tareas diarias</span>
+        <span class="streak-pill" id="streakPill">🔥 0</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- ── TABS ───────────────────────────────── -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="goTab('diarias')">Diarias</button>
+    <button class="tab-btn"        onclick="goTab('mensuales')">Mensuales</button>
+    <button class="tab-btn"        onclick="goTab('stats')">Estadísticas</button>
+  </div>
+
+  <!-- ── CONTENT ────────────────────────────── -->
+  <div class="content">
+
+    <!-- DIARIAS -->
+    <div class="tab-panel active" id="tab-diarias">
+      <div class="reset-banner" id="bannerD">✓ Nuevas tareas del día — ¡a por ellas, Nico!</div>
+      <div class="sec-head">
+        <span class="sec-title">Hábitos del día</span>
+        <button class="edit-toggle" id="editBtnD" onclick="toggleEdit('diarias')">✏ Editar</button>
+      </div>
+      <div id="listD"></div>
+      <div class="add-row" id="addRowD">
+        <input class="add-inp" id="addInpD" placeholder="Nueva tarea diaria…" onkeydown="if(event.key==='Enter')addInline('diarias')"/>
+        <button class="add-sub" onclick="addInline('diarias')">+</button>
+      </div>
+    </div>
+
+    <!-- MENSUALES -->
+    <div class="tab-panel" id="tab-mensuales">
+      <div class="reset-banner" id="bannerM">✓ Checklist mensual reiniciado</div>
+      <div class="sec-head">
+        <span class="sec-title">Checklist mensual</span>
+        <button class="edit-toggle" id="editBtnM" onclick="toggleEdit('mensuales')">✏ Editar</button>
+      </div>
+      <div id="listM"></div>
+      <div class="add-row" id="addRowM">
+        <input class="add-inp" id="addInpM" placeholder="Nueva tarea mensual…" onkeydown="if(event.key==='Enter')addInline('mensuales')"/>
+        <button class="add-sub" onclick="addInline('mensuales')">+</button>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="tab-panel" id="tab-stats">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-lbl">Racha actual</div>
+          <div class="stat-val accent" id="sStreak">0</div>
+          <div class="stat-sub">días seguidos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Mejor racha</div>
+          <div class="stat-val warn" id="sBest">0</div>
+          <div class="stat-sub">días consecutivos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Días completos</div>
+          <div class="stat-val" id="sDays">0</div>
+          <div class="stat-sub">este mes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Promedio diario</div>
+          <div class="stat-val" id="sAvg">0%</div>
+          <div class="stat-sub">cumplimiento</div>
+        </div>
+        <div class="stat-card full">
+          <div class="stat-lbl">Mensuales completadas</div>
+          <div class="bar-wrap">
+            <div class="stat-val" id="sMon" style="font-size:28px">0/0</div>
+            <div class="bar-track" style="flex:1"><div class="bar-fill" id="sMonBar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="cal-section">
+        <div class="cal-hd" id="calTitle">Calendario</div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- FAB -->
+  <button class="fab" id="fab" onclick="openAdd()">+</button>
+
+</div><!-- /app -->
+
+<!-- Modal: Editar tarea -->
+<div class="overlay" id="ovEdit" onclick="closeOv(event,'ovEdit')">
+  <div class="modal">
+    <div class="modal-title">Editar tarea</div>
+    <input class="modal-inp" id="editInp" placeholder="Nombre de la tarea"
+           onkeydown="if(event.key==='Enter')saveEdit()"/>
+    <div class="btn-row">
+      <button class="btn btn-ghost"   onclick="closeOv(null,'ovEdit')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agregar tarea (FAB) -->
+<div class="overlay" id="ovAdd" onclick="closeOv(event,'ovAdd')">
+  <div class="modal">
+    <div class="modal-title">Nueva tarea</div>
+    <input class="modal-inp" id="addInpModal" placeholder="¿Qué querés agregar?"
+           onkeydown="if(event.key==='Enter')saveAdd()"/>
+    <div class="cat-row">
+      <button class="cat-btn sel" id="catD" onclick="pickCat('diarias')">Diaria</button>
+      <button class="cat-btn"     id="catM" onclick="pickCat('mensuales')">Mensual</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost"   onclick="closeOv(null,'ovAdd')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAdd()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const DEFAULTS = {
+  diarias: [
+    {id:'d1', name:'Clasificar Gastos del Banco'},
+    {id:'d2', name:'Avanzar c/ Módulo Asesor Financiero'},
+    {id:'d3', name:'Avanzar c/ Claude'},
+    {id:'d4', name:'Gym'}
+  ],
+  mensuales: [
+    {id:'m1', name:'Conciliación Bancaria AMAP'},
+    {id:'m2', name:'Conciliación Bancaria CCRC'},
+    {id:'m3', name:'Conciliación Bancaria AMUMAP'},
+    {id:'m4', name:'Informe Contable Comparativo'}
+  ]
+};
+
+let S = {
+  tasks:      {diarias:[], mensuales:[]},
+  doneD:      [],          // ids completas hoy
+  doneM:      [],          // ids completas este mes
+  history:    {},          // {'YYYY-MM-DD': {done, total, pct}}
+  streak:     0,
+  bestStreak: 0,
+  lastDay:    '',
+  lastMonth:  ''
+};
+
+let editModes = {diarias: false, mensuales: false};
+let editingCtx = {type: null, id: null};
+let addCat = 'diarias';
+let currentTab = 'diarias';
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+};
+const thisMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}`;
+};
+const p = n => String(n).padStart(2,'0');
+const uid = pre => `${pre}${Date.now()}`;
+const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Buenos días, Nico';
+  if (h < 19) return 'Buenas tardes, Nico';
+  return 'Buenas noches, Nico';
+}
+
+function fmtDate(ds) {
+  const d   = new Date(ds + 'T00:00:00');
+  const day = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][d.getDay()];
+  const mon = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][d.getMonth()];
+  return `${day} ${d.getDate()} de ${mon}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════════════
+function save() { localStorage.setItem('nico_cron_v2', JSON.stringify(S)); }
+
+function load() {
+  try {
+    const raw = localStorage.getItem('nico_cron_v2');
+    if (raw) S = {...S, ...JSON.parse(raw)};
+  } catch(e){}
+
+  // Ensure defaults on first run
+  if (!S.tasks.diarias?.length)  S.tasks.diarias  = JSON.parse(JSON.stringify(DEFAULTS.diarias));
+  if (!S.tasks.mensuales?.length) S.tasks.mensuales = JSON.parse(JSON.stringify(DEFAULTS.mensuales));
+  if (!S.history)    S.history    = {};
+  if (!S.streak)     S.streak     = 0;
+  if (!S.bestStreak) S.bestStreak = 0;
+  if (!S.doneD)      S.doneD      = [];
+  if (!S.doneM)      S.doneM      = [];
+  if (!S.lastDay)    S.lastDay    = '';
+  if (!S.lastMonth)  S.lastMonth  = '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESET LOGIC
+// ═══════════════════════════════════════════════════════════════
+function checkResets() {
+  const td = today(), tm = thisMonth();
+  let changed = false;
+
+  // DAILY
+  if (S.lastDay && S.lastDay !== td) {
+    // Archive yesterday
+    archiveDay(S.lastDay);
+    S.doneD    = [];
+    S.lastDay  = td;
+    changed = true;
+    flash('bannerD');
+  } else if (!S.lastDay) {
+    S.lastDay = td;
+    changed = true;
+  }
+
+  // MONTHLY
+  if (S.lastMonth && S.lastMonth !== tm) {
+    S.doneM     = [];
+    S.lastMonth = tm;
+    changed = true;
+    flash('bannerM');
+  } else if (!S.lastMonth) {
+    S.lastMonth = tm;
+    changed = true;
+  }
+
+  if (changed) save();
+}
+
+function archiveDay(ds) {
+  const total = S.tasks.diarias.length;
+  const done  = S.doneD.length;
+  const pct   = total > 0 ? Math.round(done/total*100) : 0;
+  S.history[ds] = {done, total, pct};
+
+  // Streak update
+  if (total > 0 && done === total) {
+    S.streak++;
+    if (S.streak > S.bestStreak) S.bestStreak = S.streak;
+  } else {
+    // Check if it's just that it's the first time - don't break streak on 0 tasks
+    if (total > 0) S.streak = 0;
+  }
+}
+
+function flash(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3500);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+function render() {
+  renderHeader();
+  renderList('diarias');
+  renderList('mensuales');
+  if (currentTab === 'stats') renderStats();
+}
+
+function renderHeader() {
+  document.getElementById('greeting').textContent  = greeting();
+  document.getElementById('dateText').textContent  = fmtDate(today());
+
+  const total = S.tasks.diarias.length;
+  const done  = S.doneD.length;
+  const pct   = total > 0 ? Math.round(done/total*100) : 0;
+
+  const circ  = 2 * Math.PI * 28; // ≈175.9
+  const off   = circ - (pct/100)*circ;
+  document.getElementById('ringFg').style.strokeDashoffset = off;
+  document.getElementById('ringPct').textContent  = pct + '%';
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progLabel').textContent = `${done} de ${total} tareas diarias`;
+  document.getElementById('streakPill').textContent = `🔥 ${S.streak}`;
+}
+
+function renderList(type) {
+  const list   = type === 'diarias' ? document.getElementById('listD') : document.getElementById('listM');
+  const tasks  = S.tasks[type];
+  const done   = type === 'diarias' ? S.doneD : S.doneM;
+  const em     = editModes[type];
+
+  if (!tasks.length) {
+    list.innerHTML = `<div class="empty"><span>📋</span>No hay tareas. Tocá + para agregar.</div>`;
+    return;
+  }
+
+  list.innerHTML = tasks.map(t => {
+    const isDone = done.includes(t.id);
+    return `
+      <div class="task-card ${isDone?'done':''} ${em?'edit-mode':''}"
+           id="tc-${t.id}"
+           ${em ? '' : `onclick="toggle('${type}','${t.id}')"`}>
+        <div class="check">
+          <svg class="check-icon" width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <polyline points="2,6.5 5.5,10 11,3" stroke="#000" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="task-name">${esc(t.name)}</span>
+        <div class="task-actions">
+          <button class="act-btn act-edit"   onclick="openEdit('${type}','${t.id}')">✏️</button>
+          <button class="act-btn act-delete" onclick="del('${type}','${t.id}')">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Add row
+  const row = document.getElementById(type === 'diarias' ? 'addRowD' : 'addRowM');
+  row.classList.toggle('show', em);
+}
+
+function renderStats() {
+  document.getElementById('sStreak').textContent = S.streak;
+  document.getElementById('sBest').textContent   = S.bestStreak;
+
+  const tm   = thisMonth();
+  const keys = Object.keys(S.history).filter(k => k.startsWith(tm));
+  const compDays = keys.filter(k => S.history[k].pct === 100).length;
+  const avg  = keys.length
+    ? Math.round(keys.reduce((s,k)=>s+S.history[k].pct,0)/keys.length)
+    : 0;
+
+  document.getElementById('sDays').textContent = compDays;
+  document.getElementById('sAvg').textContent  = avg + '%';
+
+  const mT = S.tasks.mensuales.length;
+  const mD = S.doneM.length;
+  document.getElementById('sMon').textContent     = `${mD}/${mT}`;
+  document.getElementById('sMonBar').style.width  = mT ? Math.round(mD/mT*100)+'%' : '0%';
+
+  renderCal();
+}
+
+function renderCal() {
+  const now  = new Date();
+  const yr   = now.getFullYear(), mo = now.getMonth();
+  const tdS  = today();
+  const days = new Date(yr, mo+1, 0).getDate();
+  const first= new Date(yr, mo, 1).getDay();
+  const mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  document.getElementById('calTitle').textContent = `${mNames[mo]} ${yr}`;
+
+  let html = ['D','L','M','M','J','V','S'].map(d=>`<div class="cal-label">${d}</div>`).join('');
+
+  for (let i=0; i<first; i++) html += `<div class="cal-cell empty"></div>`;
+
+  for (let d=1; d<=days; d++) {
+    const ds  = `${yr}-${p(mo+1)}-${p(d)}`;
+    const isT = ds === tdS;
+    const isF = d  > now.getDate();
+    const h   = S.history[ds];
+    let cls   = 'cal-cell';
+    if (isT)       cls += ' today';
+    else if (isF)  cls += ' future';
+    else if (h) {
+      if      (h.pct===100) cls += ' done';
+      else if (h.pct > 0)   cls += ' part';
+    }
+    html += `<div class="${cls}">${d}</div>`;
+  }
+
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function toggle(type, id) {
+  const arr = type === 'diarias' ? S.doneD : S.doneM;
+  const i   = arr.indexOf(id);
+  if (i === -1) arr.push(id); else arr.splice(i,1);
+  // If it's the daily list and all done → update streak preview
+  if (type === 'diarias') checkInstantStreak();
+  save();
+  render();
+
+  // Ripple micro-anim
+  const el = document.getElementById('tc-'+id);
+  if (el) {
+    el.style.transform = 'scale(0.97)';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>el.style.transform=''));
+  }
+}
+
+function checkInstantStreak() {
+  // Real streak is archived at day-end; here just show live feedback via header
+}
+
+function toggleEdit(type) {
+  editModes[type] = !editModes[type];
+  const btn = document.getElementById(type==='diarias'?'editBtnD':'editBtnM');
+  btn.textContent = editModes[type] ? '✓ Listo' : '✏ Editar';
+  renderList(type);
+}
+
+function addInline(type) {
+  const inp = document.getElementById(type==='diarias'?'addInpD':'addInpM');
+  const name = inp.value.trim();
+  if (!name) return;
+  S.tasks[type].push({id: uid(type[0]), name});
+  inp.value = '';
+  save(); renderList(type);
+}
+
+function del(type, id) {
+  S.tasks[type] = S.tasks[type].filter(t=>t.id!==id);
+  if (type==='diarias') S.doneD = S.doneD.filter(x=>x!==id);
+  else                  S.doneM = S.doneM.filter(x=>x!==id);
+  save(); render();
+}
+
+function openEdit(type, id) {
+  const task = S.tasks[type].find(t=>t.id===id);
+  if (!task) return;
+  editingCtx = {type, id};
+  document.getElementById('editInp').value = task.name;
+  document.getElementById('ovEdit').classList.add('show');
+  setTimeout(()=>document.getElementById('editInp').focus(), 80);
+}
+
+function saveEdit() {
+  const name = document.getElementById('editInp').value.trim();
+  if (!name) return;
+  const task = S.tasks[editingCtx.type].find(t=>t.id===editingCtx.id);
+  if (task) task.name = name;
+  save(); closeOv(null,'ovEdit'); render();
+}
+
+function openAdd() {
+  document.getElementById('addInpModal').value = '';
+  pickCat('diarias');
+  document.getElementById('ovAdd').classList.add('show');
+  setTimeout(()=>document.getElementById('addInpModal').focus(), 80);
+}
+
+function pickCat(cat) {
+  addCat = cat;
+  document.getElementById('catD').className = 'cat-btn' + (cat==='diarias' ? ' sel' : '');
+  document.getElementById('catM').className = 'cat-btn' + (cat==='mensuales' ? ' sel' : '');
+}
+
+function saveAdd() {
+  const name = document.getElementById('addInpModal').value.trim();
+  if (!name) return;
+  S.tasks[addCat].push({id: uid(addCat[0]), name});
+  save(); closeOv(null,'ovAdd');
+  goTab(addCat); render();
+}
+
+function goTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['diarias','mensuales','stats'][i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('fab').style.display = tab==='stats' ? 'none' : 'flex';
+  if (tab==='stats') renderStats();
+}
+
+function closeOv(e, id) {
+  if (e && e.target !== document.getElementById(id)) return;
+  document.getElementById(id).classList.remove('show');
+}
+
+// Close modals on ESC
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') {
+    document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+load();
+checkResets();
+render();
+
+// Auto-refresh every minute (handles midnight crossover)
+setInterval(() => { checkResets(); render(); }, 60_000);
+</script>
+</body>
+</html>
