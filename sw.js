@@ -1,14 +1,12 @@
-const CACHE = 'cronograma-v1';
-const SHELL = [
-  '/cronograma/',
-  '/cronograma/cronograma.html',
+const CACHE = 'cronograma-v2';
+const ASSETS = [
   '/cronograma/manifest.json',
   '/cronograma/icon-192.png',
   '/cronograma/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
   self.skipWaiting();
 });
 
@@ -22,6 +20,7 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  if (e.request.mode === 'navigate') return;
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request))
   );
